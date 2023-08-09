@@ -369,7 +369,7 @@ var _ = Describe("MachineProvider", func() {
 				BuildTemplate().OpenShiftMachineV1Beta1Machine
 			Expect(template).ToNot(BeNil())
 
-			providerConfig, err := providerconfig.NewProviderConfigFromMachineTemplate(logger.Logger(), *template)
+			providerConfig, err := providerconfig.NewProviderConfigFromMachineTemplate(logger.Logger(), *template, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			selector, err := metav1.LabelSelectorAsSelector(&cpms.Spec.Selector)
@@ -1659,7 +1659,7 @@ var _ = Describe("MachineProvider", func() {
 					WithLabel(machinev1beta1.MachineClusterIDLabel, "cpms-aws-cluster-id").
 					BuildTemplate()
 
-				providerConfig, err := providerconfig.NewProviderConfigFromMachineTemplate(logger.Logger(), *template.OpenShiftMachineV1Beta1Machine)
+				providerConfig, err := providerconfig.NewProviderConfigFromMachineTemplate(logger.Logger(), *template.OpenShiftMachineV1Beta1Machine, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				selector, err := metav1.LabelSelectorAsSelector(&machinev1resourcebuilder.ControlPlaneMachineSet().Build().Spec.Selector)
@@ -1739,7 +1739,7 @@ var _ = Describe("MachineProvider", func() {
 						WithLabel(machinev1beta1.MachineClusterIDLabel, "cpms-aws-cluster-id").
 						BuildTemplate()
 
-					providerConfig, err := providerconfig.NewProviderConfigFromMachineTemplate(logger.Logger(), *template.OpenShiftMachineV1Beta1Machine)
+					providerConfig, err := providerconfig.NewProviderConfigFromMachineTemplate(logger.Logger(), *template.OpenShiftMachineV1Beta1Machine, nil)
 					Expect(err).ToNot(HaveOccurred())
 
 					openshiftProvider, ok := provider.(*openshiftMachineProvider)
@@ -1771,7 +1771,7 @@ var _ = Describe("MachineProvider", func() {
 				BuildTemplate().OpenShiftMachineV1Beta1Machine
 			Expect(template).ToNot(BeNil())
 
-			providerConfig, err := providerconfig.NewProviderConfigFromMachineTemplate(logger.Logger(), *template)
+			providerConfig, err := providerconfig.NewProviderConfigFromMachineTemplate(logger.Logger(), *template, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			selector, err := metav1.LabelSelectorAsSelector(&cpms.Spec.Selector)

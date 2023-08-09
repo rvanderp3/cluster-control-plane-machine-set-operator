@@ -42,7 +42,7 @@ var _ = Describe("Failure Domain Mapping", func() {
 
 	cpmsBuilder := machinev1resourcebuilder.ControlPlaneMachineSet().WithReplicas(3)
 	machineBuilder := machinev1beta1resourcebuilder.Machine().AsMaster().WithLabel(machinev1beta1.MachineClusterIDLabel, resourcebuilder.TestClusterIDValue)
-	providerConfig, err := providerConfig.NewProviderConfigFromMachineTemplate(logr.New(nil), *cpmsBuilder.Build().Spec.Template.OpenShiftMachineV1Beta1Machine)
+	providerConfig, err := providerConfig.NewProviderConfigFromMachineTemplate(logr.New(nil), *cpmsBuilder.Build().Spec.Template.OpenShiftMachineV1Beta1Machine, nil)
 	Expect(err).ToNot(HaveOccurred())
 	templateFailureDomain := providerConfig.ExtractFailureDomain()
 
@@ -254,7 +254,7 @@ var _ = Describe("Failure Domain Mapping", func() {
 				machines = append(machines, *machine)
 			}
 
-			mapping, err := mapMachineIndexesToFailureDomains(logger.Logger(), machines, in.replicas, failureDomains, in.templateFailureDomain)
+			mapping, err := mapMachineIndexesToFailureDomains(logger.Logger(), machines, in.replicas, failureDomains, in.templateFailureDomain, nil)
 			if in.expectedError != nil {
 				Expect(err).To(MatchError(in.expectedError))
 			} else {
@@ -1654,7 +1654,7 @@ var _ = Describe("Failure Domain Mapping", func() {
 				machines = append(machines, *machine)
 			}
 
-			mapping, deletingIndexes, err := createMachineMapping(logger.Logger(), machines)
+			mapping, deletingIndexes, err := createMachineMapping(logger.Logger(), machines, nil)
 			if in.expectedError != nil {
 				Expect(err).To(MatchError(in.expectedError))
 			} else {
