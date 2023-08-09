@@ -55,8 +55,6 @@ const (
 	// openshiftMachineRoleLabel is the OpenShift Machine API machine role label.
 	// This must be present on all OpenShift Machine API Machine templates.
 	openshiftMachineRoleLabel = "machine.openshift.io/cluster-api-machine-role"
-
-	infrastructureName = "cluster"
 )
 
 var (

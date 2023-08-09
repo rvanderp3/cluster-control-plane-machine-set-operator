@@ -68,20 +68,13 @@ var (
 // ControlPlaneMachineSetWebhook acts as a webhook validator for the
 // machinev1beta1.ControlPlaneMachineSet resource.
 type ControlPlaneMachineSetWebhook struct {
-	client         client.Client
-	logger         logr.Logger
-	infrastructure *configv1.Infrastructure
+	client client.Client
+	logger logr.Logger
 }
 
 // SetupWebhookWithManager sets up a new ControlPlaneMachineSet webhook with the manager.
 func (r *ControlPlaneMachineSetWebhook) SetupWebhookWithManager(mgr ctrl.Manager, logger logr.Logger) error {
 	r.client = mgr.GetClient()
-	ctx := context.Background()
-	infrastructure, err := util.GetInfrastructure(ctx, r.client)
-	if err != nil {
-		return fmt.Errorf("error getting infrastructure resource: %w", err)
-	}
-	r.infrastructure = infrastructure
 
 	if err := ctrl.NewWebhookManagedBy(mgr).
 		WithValidator(r).
@@ -102,6 +95,11 @@ func (r *ControlPlaneMachineSetWebhook) ValidateCreate(ctx context.Context, obj 
 	var errs []error
 	// TODO: actually plug in admission warnings.
 	var warnings []string
+
+	infrastructure, err := util.GetInfrastructure(ctx, r.client)
+	if err != nil {
+		return warnings, fmt.Errorf("error getting infrastructure resource: %w", err)
+	}
 
 	cpms, ok := obj.(*machinev1.ControlPlaneMachineSet)
 	if !ok {
@@ -132,6 +130,11 @@ func (r *ControlPlaneMachineSetWebhook) ValidateUpdate(ctx context.Context, oldO
 	cpms, ok := newObj.(*machinev1.ControlPlaneMachineSet)
 	if !ok {
 		return warnings, errObjNotCPMS
+	}
+
+	infrastructure, err := util.GetInfrastructure(ctx, r.client)
+	if err != nil {
+		return warnings, fmt.Errorf("error getting infrastructure resource: %w", err)
 	}
 
 	errs = append(errs, validateMetadata(field.NewPath("metadata"), cpms.ObjectMeta)...)

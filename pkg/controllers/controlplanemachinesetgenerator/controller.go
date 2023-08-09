@@ -104,6 +104,7 @@ func (r *ControlPlaneMachineSetGeneratorReconciler) SetupWithManager(mgr ctrl.Ma
 		Complete(r); err != nil {
 		return fmt.Errorf("could not set up controller for control plane machine set generator: %w", err)
 	}
+
 	r.APIReader = mgr.GetAPIReader()
 
 	// Set up API helpers from the manager.
@@ -157,13 +158,12 @@ func (r *ControlPlaneMachineSetGeneratorReconciler) Reconcile(ctx context.Contex
 // and would like to keep it this way.
 //
 //nolint:cyclop
-func (r *ControlPlaneMachineSetGeneratorReconciler) reconcile(ctx context.Context, logger logr.Logger,
-	cpms *machinev1.ControlPlaneMachineSet) (ctrl.Result, error) {
-
+func (r *ControlPlaneMachineSetGeneratorReconciler) reconcile(ctx context.Context, logger logr.Logger, cpms *machinev1.ControlPlaneMachineSet) (ctrl.Result, error) {
 	machines, err := r.getControlPlaneMachines(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get control plane machines: %w", err)
 	}
+
 	if !r.isSupportedControlPlaneMachinesNumber(logger, machines) {
 		return reconcile.Result{}, nil
 	}
@@ -220,7 +220,9 @@ func (r *ControlPlaneMachineSetGeneratorReconciler) generateControlPlaneMachineS
 		cpmsSpecApplyConfig machinev1builder.ControlPlaneMachineSetSpecApplyConfiguration
 		err                 error
 	)
+
 	platformType := infrastructure.Spec.PlatformSpec.Type
+
 	switch platformType {
 	case configv1.AWSPlatformType:
 		cpmsSpecApplyConfig, err = generateControlPlaneMachineSetAWSSpec(logger, machines, machineSets)
