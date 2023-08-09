@@ -45,10 +45,7 @@ const (
 	// clusterControlPlaneMachineSetName is the name of the ControlPlaneMachineSet.
 	// As ControlPlaneMachineSets are singletons within the namespace, only ControlPlaneMachineSets
 	// with this name should be reconciled.
-	clusterControlPlaneMachineSetName = "cluster"
-	// infrastructureName is the name of the Infrastructure,
-	// as Infrastructure is a singleton within the cluster.
-	infrastructureName                   = "cluster"
+	clusterControlPlaneMachineSetName    = "cluster"
 	machineRoleLabelKey                  = "machine.openshift.io/cluster-api-machine-role"
 	clusterIDLabelKey                    = "machine.openshift.io/cluster-api-cluster"
 	clusterMachineRoleLabelKey           = "machine.openshift.io/cluster-api-machine-role"
@@ -89,6 +86,7 @@ type ControlPlaneMachineSetGeneratorReconciler struct {
 	// Namespace is the namespace in which the ControlPlaneMachineSetGenerator controller should operate.
 	// Any ControlPlaneMachineSet not in this namespace should be ignored.
 	Namespace string
+	APIReader client.Reader
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -106,6 +104,7 @@ func (r *ControlPlaneMachineSetGeneratorReconciler) SetupWithManager(mgr ctrl.Ma
 		Complete(r); err != nil {
 		return fmt.Errorf("could not set up controller for control plane machine set generator: %w", err)
 	}
+	r.APIReader = mgr.GetAPIReader()
 
 	// Set up API helpers from the manager.
 	r.Scheme = mgr.GetScheme()
@@ -160,11 +159,11 @@ func (r *ControlPlaneMachineSetGeneratorReconciler) Reconcile(ctx context.Contex
 //nolint:cyclop
 func (r *ControlPlaneMachineSetGeneratorReconciler) reconcile(ctx context.Context, logger logr.Logger,
 	cpms *machinev1.ControlPlaneMachineSet) (ctrl.Result, error) {
+
 	machines, err := r.getControlPlaneMachines(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get control plane machines: %w", err)
 	}
-
 	if !r.isSupportedControlPlaneMachinesNumber(logger, machines) {
 		return reconcile.Result{}, nil
 	}
@@ -174,16 +173,17 @@ func (r *ControlPlaneMachineSetGeneratorReconciler) reconcile(ctx context.Contex
 		return reconcile.Result{}, fmt.Errorf("failed to get machinesets: %w", err)
 	}
 
-	infrastructure, err := r.getInfrastructure(ctx, infrastructureName)
+	infrastructure, err := util.GetInfrastructure(ctx, r.Client)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get infrastructure object: %w", err)
 	}
 
 	// generate an up to date ControlPlaneMachineSet based on the current cluster state.
-	generatedCPMS, err := r.generateControlPlaneMachineSet(logger, infrastructure.Status.PlatformStatus.Type, machines, machineSets)
+	generatedCPMS, err := r.generateControlPlaneMachineSet(logger, infrastructure, machines, machineSets)
 	if errors.Is(err, errUnsupportedPlatform) {
 		// Do not requeue if the platform is not supported.
 		// Nothing to do in this case.
+		logger.Info(fmt.Sprintf("%s unsupported platform", infrastructure.Status.PlatformStatus.Type))
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, fmt.Errorf("unable to generate control plane machine set: %w", err)
@@ -215,13 +215,12 @@ func (r *ControlPlaneMachineSetGeneratorReconciler) reconcile(ctx context.Contex
 // generateControlPlaneMachineSet generates a control plane machine set based on the current cluster state.
 //
 //nolint:cyclop
-func (r *ControlPlaneMachineSetGeneratorReconciler) generateControlPlaneMachineSet(logger logr.Logger,
-	platformType configv1.PlatformType, machines []machinev1beta1.Machine, machineSets []machinev1beta1.MachineSet) (*machinev1.ControlPlaneMachineSet, error) {
+func (r *ControlPlaneMachineSetGeneratorReconciler) generateControlPlaneMachineSet(logger logr.Logger, infrastructure *configv1.Infrastructure, machines []machinev1beta1.Machine, machineSets []machinev1beta1.MachineSet) (*machinev1.ControlPlaneMachineSet, error) {
 	var (
 		cpmsSpecApplyConfig machinev1builder.ControlPlaneMachineSetSpecApplyConfiguration
 		err                 error
 	)
-
+	platformType := infrastructure.Spec.PlatformSpec.Type
 	switch platformType {
 	case configv1.AWSPlatformType:
 		cpmsSpecApplyConfig, err = generateControlPlaneMachineSetAWSSpec(logger, machines, machineSets)
@@ -245,6 +244,11 @@ func (r *ControlPlaneMachineSetGeneratorReconciler) generateControlPlaneMachineS
 		}
 	case configv1.OpenStackPlatformType:
 		cpmsSpecApplyConfig, err = generateControlPlaneMachineSetOpenStackSpec(logger, machines, machineSets)
+		if err != nil {
+			return nil, fmt.Errorf("unable to generate control plane machine set spec: %w", err)
+		}
+	case configv1.VSpherePlatformType:
+		cpmsSpecApplyConfig, err = generateControlPlaneMachineSetVSphereSpec(logger, machines, machineSets, infrastructure)
 		if err != nil {
 			return nil, fmt.Errorf("unable to generate control plane machine set spec: %w", err)
 		}
@@ -342,16 +346,6 @@ func (r *ControlPlaneMachineSetGeneratorReconciler) getMachineSets(ctx context.C
 	}
 
 	return sortMachineSetsByCreationTimeAscending(machineSets.Items), nil
-}
-
-// getInfrastructure returns the infrastructure matching the infrastructureName.
-func (r *ControlPlaneMachineSetGeneratorReconciler) getInfrastructure(ctx context.Context, infrastructureName string) (*configv1.Infrastructure, error) {
-	infrastructure := &configv1.Infrastructure{}
-	if err := r.Get(ctx, client.ObjectKey{Name: infrastructureName}, infrastructure); err != nil {
-		return nil, fmt.Errorf("unable to get infrastructure object: %w", err)
-	}
-
-	return infrastructure, nil
 }
 
 // isSupportedControlPlaneMachinesNumber checks if the number of control plane machines in the cluster is supported by the ControlPlaneMachineSet.

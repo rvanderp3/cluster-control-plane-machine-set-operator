@@ -84,6 +84,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	/*infrastructure := configv1builder.Infrastructure().AsAWS("cluster", "us-east-1").WithName("cluster").Build()
+	err = k8sClient.Create(ctx, infrastructure)
+	Expect(err).ToNot(HaveOccurred())*/
+
 	httpClient, err := rest.HTTPClientFor(cfg)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(httpClient).NotTo(BeNil())

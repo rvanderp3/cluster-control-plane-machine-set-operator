@@ -65,7 +65,7 @@ var _ = Describe("Provider Config", func() {
 				in.modifyTemplate(&tmpl)
 			}
 
-			providerConfig, err := NewProviderConfigFromMachineTemplate(logger.Logger(), *tmpl.OpenShiftMachineV1Beta1Machine)
+			providerConfig, err := NewProviderConfigFromMachineTemplate(logger.Logger(), *tmpl.OpenShiftMachineV1Beta1Machine, nil)
 			if in.expectedError != nil {
 				Expect(err).To(MatchError(in.expectedError))
 				return
@@ -345,7 +345,7 @@ var _ = Describe("Provider Config", func() {
 				in.modifyMachine(machine)
 			}
 
-			providerConfig, err := NewProviderConfigFromMachineSpec(logger.Logger(), machine.Spec)
+			providerConfig, err := NewProviderConfigFromMachineSpec(logger.Logger(), machine.Spec, nil)
 			if in.expectedError != nil {
 				Expect(err).To(MatchError(in.expectedError))
 				return
@@ -412,7 +412,7 @@ var _ = Describe("Provider Config", func() {
 		}
 
 		DescribeTable("should correctly extract the failure domains", func(in extractFailureDomainsFromMachinesTableInput) {
-			failureDomains, err := ExtractFailureDomainsFromMachines(logger.Logger(), in.machines)
+			failureDomains, err := ExtractFailureDomainsFromMachines(logger.Logger(), in.machines, nil)
 
 			if in.expectedError != nil {
 				Expect(err).To(Equal(MatchError(in.expectedError)))
