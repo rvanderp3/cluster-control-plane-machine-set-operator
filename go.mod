@@ -231,3 +231,9 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
+
+replace (
+	github.com/openshift/api => github.com/rvanderp3/api v0.0.0-20230815174226-37d9131b6535
+	github.com/openshift/client-go => github.com/rvanderp3/client-go v0.0.0-20230815175021-57944f1c3391
+	github.com/openshift/cluster-api-actuator-pkg/testutils => github.com/rvanderp3/cluster-api-actuator-pkg/testutils v0.0.0-20230815182645-69cb6a516f3f
+)

@@ -18,12 +18,61 @@ package v1beta1
 
 import (
 	"encoding/json"
+	"fmt"
 
+	configv1 "github.com/openshift/api/config/v1"
 	machinev1beta1 "github.com/openshift/api/machine/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
+
+var vSphereZones = configv1.VSpherePlatformSpec{
+	FailureDomains: []configv1.VSpherePlatformFailureDomainSpec{
+		{
+			Name:   "us-west-1a",
+			Region: "us-west",
+			Zone:   "1a",
+			Server: "vcenter.test.com",
+			Topology: configv1.VSpherePlatformTopology{
+				Datacenter:     "test-dc1",
+				ComputeCluster: "test-cluster-1",
+				Networks: []string{
+					"test-network-1",
+				},
+				Datastore: "/test-dc1/datastore/test-datastore-1",
+			},
+		},
+		{
+			Name:   "us-west-1b",
+			Region: "us-west",
+			Zone:   "1b",
+			Server: "vcenter.test.com",
+			Topology: configv1.VSpherePlatformTopology{
+				Datacenter:     "test-dc2",
+				ComputeCluster: "test-cluster-2",
+				Networks: []string{
+					"test-network-2",
+				},
+				Datastore: "/test-dc2/datastore/test-datastore-2",
+			},
+		},
+		{
+			Name:   "us-west-1c",
+			Region: "us-west",
+			Zone:   "1c",
+			Server: "vcenter.test.com",
+			Topology: configv1.VSpherePlatformTopology{
+				Datacenter:     "test-dc3",
+				ComputeCluster: "test-cluster-3",
+				Networks: []string{
+					"test-network-3",
+				},
+				Datastore: "/test-dc3/datastore/test-datastore-3",
+			},
+		},
+	},
+}
 
 // VSphereProviderSpec creates a new VSphere machine config builder.
 func VSphereProviderSpec() VSphereProviderSpecBuilder {
@@ -34,11 +83,29 @@ func VSphereProviderSpec() VSphereProviderSpecBuilder {
 
 // VSphereProviderSpecBuilder is used to build out a VSphere machine config object.
 type VSphereProviderSpecBuilder struct {
-	template string
+	template          string
+	failureDomainName string
 }
 
 // Build builds a new VSphere machine config based on the configuration provided.
 func (v VSphereProviderSpecBuilder) Build() *machinev1beta1.VSphereMachineProviderSpec {
+	networkName := "test-segment-01"
+	workspace := &machinev1beta1.Workspace{}
+	if len(v.failureDomainName) > 0 {
+		for _, vSphereFailureDomain := range vSphereZones.FailureDomains {
+			if vSphereFailureDomain.Name == v.failureDomainName {
+				workspace = &machinev1beta1.Workspace{
+					Server:     vSphereFailureDomain.Server,
+					Datacenter: vSphereFailureDomain.Topology.Datacenter,
+					Datastore:  vSphereFailureDomain.Topology.Datastore,
+					ResourcePool: fmt.Sprintf("%s/hosts/%s/resources",
+						vSphereFailureDomain.Topology.Datacenter,
+						vSphereFailureDomain.Topology.ComputeCluster),
+				}
+				networkName = vSphereFailureDomain.Topology.Networks[0]
+			}
+		}
+	}
 	return &machinev1beta1.VSphereMachineProviderSpec{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "VSphereMachineProviderSpec",
@@ -56,12 +123,13 @@ func (v VSphereProviderSpecBuilder) Build() *machinev1beta1.VSphereMachineProvid
 		Network: machinev1beta1.NetworkSpec{
 			Devices: []machinev1beta1.NetworkDeviceSpec{
 				{
-					NetworkName: "test-segment-01",
+					NetworkName: networkName,
 				},
 			},
 		},
-		NumCPUs:  4,
-		Template: v.template,
+		Workspace: workspace,
+		NumCPUs:   4,
+		Template:  v.template,
 	}
 }
 
@@ -83,5 +151,11 @@ func (v VSphereProviderSpecBuilder) BuildRawExtension() *runtime.RawExtension {
 // WithTemplate sets the template for the VSphere machine config builder.
 func (v VSphereProviderSpecBuilder) WithTemplate(template string) VSphereProviderSpecBuilder {
 	v.template = template
+	return v
+}
+
+// WithZone sets the zone for the VSphere machine config builder.
+func (v VSphereProviderSpecBuilder) WithZone(zone string) VSphereProviderSpecBuilder {
+	v.failureDomainName = zone
 	return v
 }
