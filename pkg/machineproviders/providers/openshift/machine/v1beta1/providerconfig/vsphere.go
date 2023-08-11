@@ -71,6 +71,13 @@ func (v VSphereProviderConfig) InjectFailureDomain(fd machinev1.VSphereFailureDo
 				}
 			}
 
+			// TO-DO: fix in SPLAT-1141/1140
+			if len(topology.Template) > 0 {
+				newVSphereProviderConfig.providerConfig.Template = topology.Template
+			} else if len(v.infrastructure.Spec.PlatformSpec.VSphere.FailureDomains) > 1 {
+				newVSphereProviderConfig.providerConfig.Template = fmt.Sprintf("%s-rhcos-%s-%s", v.infrastructure.Status.InfrastructureName, failureDomain.Region, failureDomain.Zone)
+			}
+
 			if len(topology.Folder) > 0 {
 				workspace.Folder = topology.Folder
 			} else {
@@ -114,6 +121,14 @@ func newVSphereProviderConfig(logger logr.Logger, raw *runtime.RawExtension, inf
 
 	if err := checkForUnknownFieldsInProviderSpecAndUnmarshal(logger, raw, &vsphereMachineProviderSpec); err != nil {
 		return nil, fmt.Errorf("failed to check for unknown fields in the provider spec: %w", err)
+	}
+
+	// if multiple failure domains are defined, remove fields that are ambiguous in a multiple when
+	// multiple failure domains are present.
+	if len(infrastructure.Spec.PlatformSpec.VSphere.FailureDomains) > 1 {
+		vsphereMachineProviderSpec.Template = ""
+		vsphereMachineProviderSpec.Workspace = &machinev1beta1.Workspace{}
+		vsphereMachineProviderSpec.Network = machinev1beta1.NetworkSpec{}
 	}
 
 	VSphereProviderConfig := VSphereProviderConfig{
