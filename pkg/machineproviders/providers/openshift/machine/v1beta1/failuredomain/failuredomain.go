@@ -199,6 +199,8 @@ func (f failureDomain) Complete(templateFailureDomain FailureDomain) (FailureDom
 		return f.completeGCP(templateFailureDomain.GCP()), nil
 	case configv1.OpenStackPlatformType:
 		return f.completeOpenStack(templateFailureDomain.OpenStack()), nil
+	case configv1.VSpherePlatformType:
+		return f.completeVSphere(templateFailureDomain.VSphere()), nil
 	default:
 		return NewGenericFailureDomain(), nil
 	}
@@ -262,6 +264,14 @@ func (f failureDomain) completeOpenStack(templateFailureDomain machinev1.OpenSta
 	}
 
 	return NewOpenStackFailureDomain(*fd)
+}
+
+func (f failureDomain) completeVSphere(templateFailureDomain machinev1.VSphereFailureDomain) FailureDomain {
+	fd := templateFailureDomain.DeepCopy()
+
+	fd.Name = f.vsphere.Name
+
+	return NewVSphereFailureDomain(*fd)
 }
 
 // NewFailureDomains creates a set of FailureDomains representing the input failure
