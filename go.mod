@@ -10,7 +10,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/onsi/ginkgo/v2 v2.9.5
 	github.com/onsi/gomega v1.27.7
-	github.com/openshift/api v0.0.0-20230815081605-d7f5a4c98505
+	github.com/openshift/api v0.0.0-20230822121351-cd0541be0908
 	github.com/openshift/client-go v0.0.0-20230807132528-be5346fb33cb
 	github.com/openshift/cluster-api-actuator-pkg/testutils v0.0.0-20230807140420-9070c98a7a19
 	github.com/openshift/library-go v0.0.0-20230523150659-ab179469ba38
@@ -235,5 +235,5 @@ require (
 replace (
 	github.com/openshift/api => github.com/rvanderp3/api v0.0.0-20230825175748-675d7f27d3e9
 	github.com/openshift/client-go => github.com/rvanderp3/client-go v0.0.0-20230825181335-866b6dfb0832
-	github.com/openshift/cluster-api-actuator-pkg/testutils => github.com/rvanderp3/cluster-api-actuator-pkg/testutils v0.0.0-20230825180839-d825f3c14a24
+	github.com/openshift/cluster-api-actuator-pkg/testutils => github.com/rvanderp3/cluster-api-actuator-pkg/testutils v0.0.0-20230825192405-b7ef73d62a69
 )

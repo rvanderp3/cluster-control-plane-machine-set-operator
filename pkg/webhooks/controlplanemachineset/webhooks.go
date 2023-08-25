@@ -107,8 +107,8 @@ func (r *ControlPlaneMachineSetWebhook) ValidateCreate(ctx context.Context, obj 
 	}
 
 	errs = append(errs, validateMetadata(field.NewPath("metadata"), cpms.ObjectMeta)...)
-	errs = append(errs, r.validateSpec(ctx, field.NewPath("spec"), cpms, r.infrastructure)...)
-	errs = append(errs, r.validateSpecOnCreate(ctx, field.NewPath("spec"), cpms, r.infrastructure)...)
+	errs = append(errs, r.validateSpec(ctx, field.NewPath("spec"), cpms, infrastructure)...)
+	errs = append(errs, r.validateSpecOnCreate(ctx, field.NewPath("spec"), cpms, infrastructure)...)
 
 	if len(errs) > 0 {
 		return warnings, utilerrors.NewAggregate(errs)
@@ -138,7 +138,7 @@ func (r *ControlPlaneMachineSetWebhook) ValidateUpdate(ctx context.Context, oldO
 	}
 
 	errs = append(errs, validateMetadata(field.NewPath("metadata"), cpms.ObjectMeta)...)
-	errs = append(errs, r.validateSpec(ctx, field.NewPath("spec"), cpms, r.infrastructure)...)
+	errs = append(errs, r.validateSpec(ctx, field.NewPath("spec"), cpms, infrastructure)...)
 
 	if len(errs) > 0 {
 		return warnings, utilerrors.NewAggregate(errs)
@@ -240,15 +240,15 @@ func (r *ControlPlaneMachineSetWebhook) validateOpenShiftMachineV1BetaTemplate(c
 
 	errs = append(errs, validateTemplateLabels(parentPath.Child("metadata", "labels"), template.ObjectMeta.Labels, selector)...)
 	errs = append(errs, validateOpenShiftProviderConfig(r.logger, parentPath, template, infrastructure)...)
-	errs = append(errs, r.validateOpenShiftProviderMachineSpec(ctx, namespaceName, parentPath.Child("spec", "providerSpec"), template)...)
+	errs = append(errs, r.validateOpenShiftProviderMachineSpec(ctx, namespaceName, parentPath.Child("spec", "providerSpec"), template, infrastructure)...)
 
 	return errs
 }
 
-func (r *ControlPlaneMachineSetWebhook) validateOpenShiftProviderMachineSpec(ctx context.Context, namespaceName string, parentPath *field.Path, template machinev1.OpenShiftMachineV1Beta1MachineTemplate) []error {
+func (r *ControlPlaneMachineSetWebhook) validateOpenShiftProviderMachineSpec(ctx context.Context, namespaceName string, parentPath *field.Path, template machinev1.OpenShiftMachineV1Beta1MachineTemplate, infrastructure *configv1.Infrastructure) []error {
 	errs := []error{}
 
-	providerConfig, err := providerconfig.NewProviderConfigFromMachineTemplate(r.logger, template)
+	providerConfig, err := providerconfig.NewProviderConfigFromMachineTemplate(r.logger, template, infrastructure)
 	if err != nil {
 		return []error{field.Invalid(parentPath, template.Spec.ProviderSpec.Value, fmt.Sprintf("error determining provider configuration: %s", err))}
 	}
@@ -304,7 +304,7 @@ func validateOpenShiftMachineV1BetaTemplateOnCreate(logger logr.Logger, parentPa
 	if template.FailureDomains.Platform == "" {
 		errs = append(errs, checkOpenShiftProviderSpecFailureDomainMatchesMachines(logger, parentPath.Child("spec", "providerSpec"), template, machines, infrastructure)...)
 	} else {
-		errs = append(errs, checkOpenShiftFailureDomainsMatchMachines(logger, parentPath.Child("failureDomains"), template.FailureDomains, machines)...)
+		errs = append(errs, checkOpenShiftFailureDomainsMatchMachines(logger, parentPath.Child("failureDomains"), template.FailureDomains, machines, infrastructure)...)
 	}
 
 	return errs

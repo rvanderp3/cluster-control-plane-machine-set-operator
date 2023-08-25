@@ -509,8 +509,8 @@ github.com/rvanderp3/api v0.0.0-20230825175748-675d7f27d3e9 h1:n1Fo4b6PWGs15LRUS
 github.com/rvanderp3/api v0.0.0-20230825175748-675d7f27d3e9/go.mod h1:yimSGmjsI+XF1mr+AKBs2//fSXIOhhetHGbMlBEfXbs=
 github.com/rvanderp3/client-go v0.0.0-20230825181335-866b6dfb0832 h1:gNvsldsxDk3XL8ZwyyR9l4c/y4qRagIoB+DlkNQXWUs=
 github.com/rvanderp3/client-go v0.0.0-20230825181335-866b6dfb0832/go.mod h1:zVjLFYQMPLb4neOCU69Q1FoC61/64E7HVgEzJLW22G8=
-github.com/rvanderp3/cluster-api-actuator-pkg/testutils v0.0.0-20230825180839-d825f3c14a24 h1:Gxov7beakqdiJ3mLx28ElHc5LXlaxX4Sxbd7eiqSTkE=
-github.com/rvanderp3/cluster-api-actuator-pkg/testutils v0.0.0-20230825180839-d825f3c14a24/go.mod h1:NMjutG6dDkfiRi13//Rcv2uZoGrjODA7cI124h8gPUA=
+github.com/rvanderp3/cluster-api-actuator-pkg/testutils v0.0.0-20230825192405-b7ef73d62a69 h1:UH5YoDTXYV0zDiifh9colr5UEXsR2hcwGiLHSGGV134=
+github.com/rvanderp3/cluster-api-actuator-pkg/testutils v0.0.0-20230825192405-b7ef73d62a69/go.mod h1:neZwzmR/CzwsuIqn/NKY282iqA+3N+JjLJOLCbAqFUM=
 github.com/ryancurrah/gomodguard v1.3.0 h1:q15RT/pd6UggBXVBuLps8BXRvl5GPBcwVA7BJHMLuTw=
 github.com/ryancurrah/gomodguard v1.3.0/go.mod h1:ggBxb3luypPEzqVtq33ee7YSN35V28XeGnid8dnni50=
 github.com/ryanrolds/sqlclosecheck v0.4.0 h1:i8SX60Rppc1wRuyQjMciLqIzV3xnoHB7/tXbr6RGYNI=

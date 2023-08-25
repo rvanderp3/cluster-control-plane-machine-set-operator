@@ -1017,7 +1017,7 @@ var _ = Describe("controlplanemachinesetgenerator controller on Azure", func() {
 					// Remove from the machine Provider Spec the fields that won't be
 					// present on the ControlPlaneMachineSet Provider Spec.
 					azureMachineProviderConfig := machineProviderSpec.Azure().Config()
-					azureMachineProviderConfig.Zone = nil
+					azureMachineProviderConfig.Zone = ""
 
 					Expect(cpmsProviderSpec.Azure().Config()).To(Equal(azureMachineProviderConfig))
 				})
@@ -1071,7 +1071,7 @@ var _ = Describe("controlplanemachinesetgenerator controller on Azure", func() {
 					// Remove from the machine Provider Spec the fields that won't be
 					// present on the ControlPlaneMachineSet Provider Spec.
 					azureMachineProviderConfig := machineProviderSpec.Azure().Config()
-					azureMachineProviderConfig.Zone = nil
+					azureMachineProviderConfig.Zone = ""
 
 					Expect(cpmsProviderSpec.Azure().Config()).To(Equal(azureMachineProviderConfig))
 				})
@@ -1202,7 +1202,7 @@ var _ = Describe("controlplanemachinesetgenerator controller on Azure", func() {
 				// Remove from the machine Provider Spec the fields that won't be
 				// present on the ControlPlaneMachineSet Provider Spec.
 				azureMachineProviderConfig := machineProviderSpec.Azure().Config()
-				azureMachineProviderConfig.Zone = nil
+				azureMachineProviderConfig.Zone = ""
 
 				oldUID := cpms.UID
 
