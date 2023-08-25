@@ -299,18 +299,6 @@ spec:
                                 - AlibabaCloud
                                 - Nutanix
                                 - External
-                            vsphere:
-                              description: VSphereFailureDomain configures failure domain information for the VSphere platform.
-                              type: array
-                              items:
-                                description: VSphereFailureDomain configures failure domain information for the vSphere platform
-                                type: object
-                                required:
-                                  - name
-                                properties:
-                                  name:
-                                    description: Name is the name of the failure domain in which the vSphere machine provider will create the VM. Failure domains are defined in a cluster's config.openshift.io/Infrastructure resource.
-                                    type: string
                           x-kubernetes-validations:
                             - rule: 'has(self.platform) && self.platform == ''AWS'' ?  has(self.aws) : !has(self.aws)'
                               message: aws configuration is required when platform is AWS, and forbidden otherwise

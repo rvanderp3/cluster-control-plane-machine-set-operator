@@ -1014,6 +1014,7 @@ type VSpherePlatformTopology struct {
 
 	// template is the inventory path of the virtual machine or template
 	// that will be used for cloning.
+	// +openshift:enable:FeatureSets=CustomNoUpgrade;TechPreviewNoUpgrade
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=2048
 	// +kubebuilder:validation:Pattern=`^/.*?/vm/.*?`

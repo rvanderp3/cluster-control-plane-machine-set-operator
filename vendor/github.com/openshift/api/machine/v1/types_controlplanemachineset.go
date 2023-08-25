@@ -254,6 +254,7 @@ type FailureDomains struct {
 	// VSphereFailureDomain configures failure domain information for the VSphere platform.
 	// +optional
 	//
+	// +openshift:enable:FeatureSets=CustomNoUpgrade;TechPreviewNoUpgrade
 	// + ---
 	// + Unlike other platforms, VSphere failure domains can be empty.
 	// + Some VSphere deployments may not have availability zones or root volumes.

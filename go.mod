@@ -233,7 +233,7 @@ require (
 )
 
 replace (
-	github.com/openshift/api => github.com/rvanderp3/api v0.0.0-20230815174226-37d9131b6535
-	github.com/openshift/client-go => github.com/rvanderp3/client-go v0.0.0-20230815175021-57944f1c3391
-	github.com/openshift/cluster-api-actuator-pkg/testutils => github.com/rvanderp3/cluster-api-actuator-pkg/testutils v0.0.0-20230815182645-69cb6a516f3f
+	github.com/openshift/api => github.com/rvanderp3/api v0.0.0-20230825175748-675d7f27d3e9
+	github.com/openshift/client-go => github.com/rvanderp3/client-go v0.0.0-20230825181335-866b6dfb0832
+	github.com/openshift/cluster-api-actuator-pkg/testutils => github.com/rvanderp3/cluster-api-actuator-pkg/testutils v0.0.0-20230825180839-d825f3c14a24
 )
