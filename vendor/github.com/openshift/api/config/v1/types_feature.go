@@ -163,6 +163,7 @@ var FeatureSets = map[FeatureSet]*FeatureGateEnabledDisabled{
 		Disabled: []FeatureGateDescription{},
 	},
 	TechPreviewNoUpgrade: newDefaultFeatures().
+		with(validatingAdmissionPolicy).
 		with(externalCloudProvider).
 		with(externalCloudProviderGCP).
 		with(csiDriverSharedResource).
@@ -170,7 +171,6 @@ var FeatureSets = map[FeatureSet]*FeatureGateEnabledDisabled{
 		with(machineAPIProviderOpenStack).
 		with(insightsConfigAPI).
 		with(retroactiveDefaultStorageClass).
-		with(pdbUnhealthyPodEvictionPolicy).
 		with(dynamicResourceAllocation).
 		with(admissionWebhookMatchConditions).
 		with(azureWorkloadIdentity).
