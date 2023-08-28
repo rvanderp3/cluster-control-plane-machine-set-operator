@@ -57,6 +57,7 @@ const (
 const (
 	unsupportedNumberOfControlPlaneMachines     = "Unable to generate control plane machine set, unsupported number of control plane machines"
 	unsupportedPlatform                         = "Unable to generate control plane machine set, unsupported platform"
+	notEnabledPlatformVSphere                   = "Unable to generate control plane machine set, vSphere is tech preview. may be enabled with VSphereControlPlaneMachineSet feature gate"
 	controlPlaneMachineSetNotFound              = "Control plane machine set not found"
 	controlPlaneMachineSetUpToDate              = "Control plane machine set is up to date"
 	controlPlaneMachineSetOutdated              = "Control plane machine set is outdated"
@@ -87,6 +88,9 @@ type ControlPlaneMachineSetGeneratorReconciler struct {
 	// Any ControlPlaneMachineSet not in this namespace should be ignored.
 	Namespace string
 	APIReader client.Reader
+
+	// VSphereCPMSFeatureGateEnabled is true when the feature gate is enabled.
+	VSphereCPMSFeatureGateEnabled bool
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -250,6 +254,10 @@ func (r *ControlPlaneMachineSetGeneratorReconciler) generateControlPlaneMachineS
 			return nil, fmt.Errorf("unable to generate control plane machine set spec: %w", err)
 		}
 	case configv1.VSpherePlatformType:
+		if !r.VSphereCPMSFeatureGateEnabled {
+			logger.V(1).WithValues("platform", platformType).Info(unsupportedPlatform)
+			return nil, errUnsupportedPlatform
+		}
 		cpmsSpecApplyConfig, err = generateControlPlaneMachineSetVSphereSpec(logger, machines, machineSets, infrastructure)
 		if err != nil {
 			return nil, fmt.Errorf("unable to generate control plane machine set spec: %w", err)
