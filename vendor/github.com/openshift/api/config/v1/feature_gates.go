@@ -305,7 +305,7 @@ var (
 	FeatureGateVSphereControlPlaneMachineset = FeatureGateName("VSphereControlPlaneMachineSet")
 	vSphereControlPlaneMachineset            = FeatureGateDescription{
 		FeatureGateAttributes: FeatureGateAttributes{
-			Name: FeatureGateVSphereStaticIPs,
+			Name: FeatureGateVSphereControlPlaneMachineset,
 		},
 		OwningJiraComponent: "splat",
 		ResponsiblePerson:   "rvanderp3",

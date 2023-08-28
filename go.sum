@@ -669,10 +669,10 @@ github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFR
 github.com/rogpeppe/go-internal v1.10.0 h1:TMyTOH3F/DB16zRVcYyreMH6GnZZrwQVAoYjRBZyWFQ=
 github.com/russross/blackfriday v1.5.2/go.mod h1:JO/DiYxRf+HjHt06OyowR9PTA263kcR/rfWxYHBV53g=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
-github.com/rvanderp3/api v0.0.0-20230828172152-24b3e2b2872b h1:sEq1dxm+fbEWQ21YKFBS2ndwn6rwOwNTiBXrAHrn3i0=
-github.com/rvanderp3/api v0.0.0-20230828172152-24b3e2b2872b/go.mod h1:yimSGmjsI+XF1mr+AKBs2//fSXIOhhetHGbMlBEfXbs=
-github.com/rvanderp3/client-go v0.0.0-20230828172926-6651ab1c656a h1:nK3N889KSIw81JRrEx8t9k9GgJoAnuwknxCO6q44wHM=
-github.com/rvanderp3/client-go v0.0.0-20230828172926-6651ab1c656a/go.mod h1:zVjLFYQMPLb4neOCU69Q1FoC61/64E7HVgEzJLW22G8=
+github.com/rvanderp3/api v0.0.0-20230828181657-f5a03f5494d5 h1:rFOr3vJvVI85VarVChFw+0weAoDVWji6yF74OIJz/Gs=
+github.com/rvanderp3/api v0.0.0-20230828181657-f5a03f5494d5/go.mod h1:yimSGmjsI+XF1mr+AKBs2//fSXIOhhetHGbMlBEfXbs=
+github.com/rvanderp3/client-go v0.0.0-20230828210208-568ea4f0906d h1:MmH5+4S0or0QE1k02R3wPVOVGwWVdQpov2hKcXPrSCs=
+github.com/rvanderp3/client-go v0.0.0-20230828210208-568ea4f0906d/go.mod h1:eOR23c023TqJOfF5qPFOKJBeFc/SJRb1Uu+1Knotgvo=
 github.com/rvanderp3/cluster-api-actuator-pkg/testutils v0.0.0-20230828172723-b952b21e1325 h1:zzHHZGTp5WP0baAWhimGFwt/ZSNBNtnuzUDt755gll4=
 github.com/rvanderp3/cluster-api-actuator-pkg/testutils v0.0.0-20230828172723-b952b21e1325/go.mod h1:neZwzmR/CzwsuIqn/NKY282iqA+3N+JjLJOLCbAqFUM=
 github.com/ryancurrah/gomodguard v1.3.0 h1:q15RT/pd6UggBXVBuLps8BXRvl5GPBcwVA7BJHMLuTw=
