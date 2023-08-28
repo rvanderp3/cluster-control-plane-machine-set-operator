@@ -626,7 +626,7 @@ var _ = Describe("FailureDomains", func() {
 					openstack:    machinev1resourcebuilder.OpenStackFailureDomain().WithComputeAvailabilityZone("nova-az0").Build(),
 				}
 				fd2 = failureDomain{
-					platformType: configv1.GCPPlatformType,
+					platformType: configv1.OpenStackPlatformType,
 					openstack:    machinev1resourcebuilder.OpenStackFailureDomain().WithComputeAvailabilityZone("nova-az1").Build(),
 				}
 			})
