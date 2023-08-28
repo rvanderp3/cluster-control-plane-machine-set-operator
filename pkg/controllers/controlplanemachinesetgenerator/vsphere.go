@@ -30,40 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// checkVSphereMachinesServerGroups checks if all machines have the same ServerGroup (the reference is the newest machine's ServerGroup).
-func checkVSphereMachinesServerGroups(logger logr.Logger, machines []machinev1beta1.Machine) error {
-	// TO-DO: implement
-	/*newestMachineProviderConfig, err := providerconfig.NewProviderConfigFromMachineSpec(logger, machines[0].Spec)
-	if err != nil {
-		return fmt.Errorf("failed to extract newest machine's VSphere providerSpec: %w", err)
-	}
-
-	newestVSphereProviderSpec := newestMachineProviderConfig.VSphere().Config()
-	newestServerGroup := newestVSphereProviderSpec.ServerGroupName
-
-	for _, machine := range machines {
-		// get the providerSpec from the machine
-		providerConfig, err := providerconfig.NewProviderConfigFromMachineSpec(logger, machine.Spec)
-		if err != nil {
-			return fmt.Errorf("failed to extract machine's VSphere providerSpec: %w", err)
-		}
-
-		VSphereProviderSpec := providerConfig.VSphere().Config()
-		// Return an error if the ServerGroup is not the same as the newest machine's ServerGroup.
-		if VSphereProviderSpec.ServerGroupName != newestServerGroup {
-			return fmt.Errorf("%w: machine %s has a different ServerGroup than the newest machine. Check this KCS article for more information: https://access.redhat.com/solutions/7013893", errInconsistentProviderSpec, machine.Name)
-		}
-	}*/
-	return nil
-}
-
 // generateControlPlaneMachineSetVSphereSpec generates an VSphere flavored ControlPlaneMachineSet Spec.
 func generateControlPlaneMachineSetVSphereSpec(logger logr.Logger, machines []machinev1beta1.Machine, machineSets []machinev1beta1.MachineSet, infrastructure *configv1.Infrastructure) (machinev1builder.ControlPlaneMachineSetSpecApplyConfiguration, error) {
-	// We want to make sure that the machines are ready to be used for generating a ControlPlaneMachineSet.
-	if err := checkVSphereMachinesServerGroups(logger, machines); err != nil {
-		return machinev1builder.ControlPlaneMachineSetSpecApplyConfiguration{}, fmt.Errorf("failed to check VSphere machines ServerGroup: %w", err)
-	}
-
 	controlPlaneMachineSetMachineFailureDomainsApplyConfig, err := buildFailureDomains(logger, machineSets, machines, infrastructure)
 	if err != nil {
 		return machinev1builder.ControlPlaneMachineSetSpecApplyConfiguration{}, fmt.Errorf("failed to build ControlPlaneMachineSet's VSphere failure domains: %w", err)
