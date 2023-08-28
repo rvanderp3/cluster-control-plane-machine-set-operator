@@ -184,6 +184,7 @@ var FeatureSets = map[FeatureSet]*FeatureGateEnabledDisabled{
 		with(automatedEtcdBackup).
 		without(machineAPIOperatorDisableMachineHealthCheckController).
 		with(adminNetworkPolicy).
+		with(vSphereControlPlaneMachineset).
 		toFeatures(defaultFeatures),
 	LatencySensitive: newDefaultFeatures().
 		toFeatures(defaultFeatures),
