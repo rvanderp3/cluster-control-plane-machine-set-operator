@@ -130,6 +130,18 @@ var _ = Describe("Provider Config", func() {
 				providerSpecBuilder:   machinev1beta1resourcebuilder.OpenStackProviderSpec(),
 				providerConfigMatcher: HaveField("OpenStack().Config()", *machinev1beta1resourcebuilder.OpenStackProviderSpec().Build()),
 			}),
+			Entry("with an vSphere config with failure domains", providerConfigTableInput{
+				expectedPlatformType:  configv1.VSpherePlatformType,
+				failureDomainsBuilder: machinev1resourcebuilder.VSphereFailureDomains(),
+				providerSpecBuilder:   machinev1beta1resourcebuilder.VSphereProviderSpec(),
+				providerConfigMatcher: HaveField("VSphere().Config()", *machinev1beta1resourcebuilder.OpenStackProviderSpec().Build()),
+			}),
+			Entry("with an vSphere config without failure domains", providerConfigTableInput{
+				expectedPlatformType:  configv1.VSpherePlatformType,
+				failureDomainsBuilder: nil,
+				providerSpecBuilder:   machinev1beta1resourcebuilder.VSphereProviderSpec(),
+				providerConfigMatcher: HaveField("VSphere().Config()", *machinev1beta1resourcebuilder.VSphereProviderSpec().Build()),
+			}),
 		)
 	})
 
@@ -254,6 +266,32 @@ var _ = Describe("Provider Config", func() {
 					machinev1resourcebuilder.GCPFailureDomain().WithZone("us-central1-b").Build(),
 				),
 				matchPath:        "GCP().Config().Zone",
+				matchExpectation: "us-central1-b",
+			}),
+			Entry("when keeping a VSphere zone the same", injectFailureDomainTableInput{
+				providerConfig: &providerConfig{
+					platformType: configv1.VSpherePlatformType,
+					vsphere: VSphereProviderConfig{
+						providerConfig: *machinev1beta1resourcebuilder.VSphereProviderSpec().WithZone("us-central1-a").Build(),
+					},
+				},
+				failureDomain: failuredomain.NewVSphereFailureDomain(
+					machinev1.VSphereFailureDomain(machinev1resourcebuilder.VSphereFailureDomain().WithZone("us-central1-a")),
+				),
+				matchPath:        "VSphere().Config().Zone",
+				matchExpectation: "us-central1-a",
+			}),
+			Entry("when changing a VSphere zone", injectFailureDomainTableInput{
+				providerConfig: &providerConfig{
+					platformType: configv1.VSpherePlatformType,
+					vsphere: VSphereProviderConfig{
+						providerConfig: *machinev1beta1resourcebuilder.VSphereProviderSpec().WithZone("us-central1-a").Build(),
+					},
+				},
+				failureDomain: failuredomain.NewVSphereFailureDomain(
+					machinev1.VSphereFailureDomain(machinev1resourcebuilder.VSphereFailureDomain().WithZone("us-central1-b")),
+				),
+				matchPath:        "VSphere().Config().Zone",
 				matchExpectation: "us-central1-b",
 			}),
 			Entry("when keeping an OpenStack compute availability zone the same", injectFailureDomainTableInput{
@@ -381,6 +419,11 @@ var _ = Describe("Provider Config", func() {
 				expectedPlatformType:  configv1.OpenStackPlatformType,
 				providerSpecBuilder:   machinev1beta1resourcebuilder.OpenStackProviderSpec(),
 				providerConfigMatcher: HaveField("OpenStack().Config()", *machinev1beta1resourcebuilder.OpenStackProviderSpec().Build()),
+			}),
+			Entry("with an VSphere config with failure domains", providerConfigTableInput{
+				expectedPlatformType:  configv1.VSpherePlatformType,
+				providerSpecBuilder:   machinev1beta1resourcebuilder.VSphereProviderSpec(),
+				providerConfigMatcher: HaveField("VShere().Config()", *machinev1beta1resourcebuilder.VSphereProviderSpec().Build()),
 			}),
 		)
 	})
@@ -522,6 +565,17 @@ var _ = Describe("Provider Config", func() {
 				},
 				expectedFailureDomain: failuredomain.NewGCPFailureDomain(
 					machinev1resourcebuilder.GCPFailureDomain().WithZone("us-central1-a").Build(),
+				),
+			}),
+			Entry("with a VSphere us-central1-a failure domain", extractFailureDomainTableInput{
+				providerConfig: &providerConfig{
+					platformType: configv1.VSpherePlatformType,
+					vsphere: VSphereProviderConfig{
+						providerConfig: *machinev1beta1resourcebuilder.VSphereProviderSpec().WithZone("us-central1-a").Build(),
+					},
+				},
+				expectedFailureDomain: failuredomain.NewVSphereFailureDomain(
+					machinev1.VSphereFailureDomain(machinev1resourcebuilder.VSphereFailureDomain().WithZone("us-central1-a")),
 				),
 			}),
 			Entry("with an OpenStack az2 failure domain", extractFailureDomainTableInput{
@@ -677,6 +731,36 @@ var _ = Describe("Provider Config", func() {
 					platformType: configv1.GCPPlatformType,
 					gcp: GCPProviderConfig{
 						providerConfig: *machinev1beta1resourcebuilder.GCPProviderSpec().WithZone("us-central1-b").Build(),
+					},
+				},
+				expectedEqual: false,
+			}),
+			Entry("with matching VSphere configs", equalTableInput{
+				basePC: &providerConfig{
+					platformType: configv1.VSpherePlatformType,
+					vsphere: VSphereProviderConfig{
+						providerConfig: *machinev1beta1resourcebuilder.VSphereProviderSpec().WithZone("us-central1-a").Build(),
+					},
+				},
+				comparePC: &providerConfig{
+					platformType: configv1.VSpherePlatformType,
+					vsphere: VSphereProviderConfig{
+						providerConfig: *machinev1beta1resourcebuilder.VSphereProviderSpec().WithZone("us-central1-a").Build(),
+					},
+				},
+				expectedEqual: true,
+			}),
+			Entry("with mis-matched VSphere configs", equalTableInput{
+				basePC: &providerConfig{
+					platformType: configv1.VSpherePlatformType,
+					vsphere: VSphereProviderConfig{
+						providerConfig: *machinev1beta1resourcebuilder.VSphereProviderSpec().WithZone("us-central1-a").Build(),
+					},
+				},
+				comparePC: &providerConfig{
+					platformType: configv1.VSpherePlatformType,
+					vsphere: VSphereProviderConfig{
+						providerConfig: *machinev1beta1resourcebuilder.VSphereProviderSpec().WithZone("us-central1-b").Build(),
 					},
 				},
 				expectedEqual: false,
