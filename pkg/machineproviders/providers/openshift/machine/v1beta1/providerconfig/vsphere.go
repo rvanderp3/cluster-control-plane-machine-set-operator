@@ -79,7 +79,7 @@ func (v VSphereProviderConfig) InjectFailureDomain(fd machinev1.VSphereFailureDo
 			// TO-DO: fix in SPLAT-1141/1140
 			if len(topology.Template) > 0 {
 				newVSphereProviderConfig.providerConfig.Template = topology.Template[strings.LastIndex(topology.Template, "/")+1:]
-			} else if len(v.infrastructure.Spec.PlatformSpec.VSphere.FailureDomains) > 1 {
+			} else {
 				newVSphereProviderConfig.providerConfig.Template = fmt.Sprintf("%s-rhcos-%s-%s", v.infrastructure.Status.InfrastructureName, failureDomain.Region, failureDomain.Zone)
 			}
 
@@ -131,6 +131,24 @@ func newVSphereProviderConfig(logger logr.Logger, raw *runtime.RawExtension, inf
 	VSphereProviderConfig := VSphereProviderConfig{
 		providerConfig: vsphereMachineProviderSpec,
 		infrastructure: infrastructure,
+	}
+
+	// For networking, we only need to compare the network name.  For static IPs, we can ignore all ip configuration;
+	// however, we may need to verify the addressesFromPools is present.
+	logger.V(1).Info("provider network", "network", vsphereMachineProviderSpec.Network)
+	for index, device := range vsphereMachineProviderSpec.Network.Devices {
+		vsphereMachineProviderSpec.Network.Devices[index] = machinev1beta1.NetworkDeviceSpec{}
+		if device.NetworkName != "" {
+			vsphereMachineProviderSpec.Network.Devices[index].NetworkName = device.NetworkName
+		}
+
+		if device.AddressesFromPools != nil {
+			vsphereMachineProviderSpec.Network.Devices[index].AddressesFromPools = device.AddressesFromPools
+		}
+
+		if device.Nameservers != nil {
+			vsphereMachineProviderSpec.Network.Devices[index].Nameservers = device.Nameservers
+		}
 	}
 
 	config := providerConfig{
