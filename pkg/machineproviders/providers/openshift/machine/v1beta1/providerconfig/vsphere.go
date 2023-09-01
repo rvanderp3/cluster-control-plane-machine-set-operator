@@ -18,6 +18,7 @@ package providerconfig
 
 import (
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -66,14 +67,17 @@ func (v VSphereProviderConfig) InjectFailureDomain(fd machinev1.VSphereFailureDo
 				workspace.Server = failureDomain.Server
 			}
 
+			logrus.Infof("Original Network before FD: %v", newVSphereProviderConfig.providerConfig.Network)
+
 			if len(topology.Networks) > 0 {
-				newVSphereProviderConfig.providerConfig.Network = machinev1beta1.NetworkSpec{
+				/*newVSphereProviderConfig.providerConfig.Network = machinev1beta1.NetworkSpec{
 					Devices: []machinev1beta1.NetworkDeviceSpec{
 						{
 							NetworkName: topology.Networks[0],
 						},
 					},
-				}
+				}*/
+				newVSphereProviderConfig.providerConfig.Network.Devices[0].NetworkName = topology.Networks[0]
 			}
 
 			// TO-DO: fix in SPLAT-1141/1140
