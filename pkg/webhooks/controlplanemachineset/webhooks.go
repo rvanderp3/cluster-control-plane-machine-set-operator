@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 
 	"github.com/go-logr/logr"
 	configv1 "github.com/openshift/api/config/v1"
@@ -27,6 +28,7 @@ import (
 	machinev1beta1 "github.com/openshift/api/machine/v1beta1"
 	"github.com/openshift/cluster-control-plane-machine-set-operator/pkg/machineproviders/providers/openshift/machine/v1beta1/failuredomain"
 	"github.com/openshift/cluster-control-plane-machine-set-operator/pkg/machineproviders/providers/openshift/machine/v1beta1/providerconfig"
+	"github.com/openshift/cluster-control-plane-machine-set-operator/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -54,6 +56,8 @@ const (
 	// clusterSingletonName is the OpenShift standard name, "cluster", for singleton
 	// resources. All ControlPlaneMachineSet resources must use this name.
 	clusterSingletonName = "cluster"
+
+	vsphereTemplateValidationPattern = `^/.*?/vm/.*?`
 )
 
 var (
@@ -74,6 +78,7 @@ type ControlPlaneMachineSetWebhook struct {
 // SetupWebhookWithManager sets up a new ControlPlaneMachineSet webhook with the manager.
 func (r *ControlPlaneMachineSetWebhook) SetupWebhookWithManager(mgr ctrl.Manager, logger logr.Logger) error {
 	r.client = mgr.GetClient()
+
 	if err := ctrl.NewWebhookManagedBy(mgr).
 		WithValidator(r).
 		For(&machinev1.ControlPlaneMachineSet{}).
@@ -94,14 +99,19 @@ func (r *ControlPlaneMachineSetWebhook) ValidateCreate(ctx context.Context, obj 
 	// TODO: actually plug in admission warnings.
 	var warnings []string
 
+	infrastructure, err := util.GetInfrastructure(ctx, r.client)
+	if err != nil {
+		return warnings, fmt.Errorf("error getting infrastructure resource: %w", err)
+	}
+
 	cpms, ok := obj.(*machinev1.ControlPlaneMachineSet)
 	if !ok {
 		return warnings, errObjNotCPMS
 	}
 
 	errs = append(errs, validateMetadata(field.NewPath("metadata"), cpms.ObjectMeta)...)
-	errs = append(errs, r.validateSpec(ctx, field.NewPath("spec"), cpms)...)
-	errs = append(errs, r.validateSpecOnCreate(ctx, field.NewPath("spec"), cpms)...)
+	errs = append(errs, r.validateSpec(ctx, field.NewPath("spec"), cpms, infrastructure)...)
+	errs = append(errs, r.validateSpecOnCreate(ctx, field.NewPath("spec"), cpms, infrastructure)...)
 
 	if len(errs) > 0 {
 		return warnings, utilerrors.NewAggregate(errs)
@@ -125,8 +135,13 @@ func (r *ControlPlaneMachineSetWebhook) ValidateUpdate(ctx context.Context, oldO
 		return warnings, errObjNotCPMS
 	}
 
+	infrastructure, err := util.GetInfrastructure(ctx, r.client)
+	if err != nil {
+		return warnings, fmt.Errorf("error getting infrastructure resource: %w", err)
+	}
+
 	errs = append(errs, validateMetadata(field.NewPath("metadata"), cpms.ObjectMeta)...)
-	errs = append(errs, r.validateSpec(ctx, field.NewPath("spec"), cpms)...)
+	errs = append(errs, r.validateSpec(ctx, field.NewPath("spec"), cpms, infrastructure)...)
 
 	if len(errs) > 0 {
 		return warnings, utilerrors.NewAggregate(errs)
@@ -141,7 +156,7 @@ func (r *ControlPlaneMachineSetWebhook) ValidateDelete(ctx context.Context, obj 
 }
 
 // validateSpecOnCreate runs the create time validations on the ControlPlaneMachineSet spec.
-func (r *ControlPlaneMachineSetWebhook) validateSpecOnCreate(ctx context.Context, parentPath *field.Path, cpms *machinev1.ControlPlaneMachineSet) []error {
+func (r *ControlPlaneMachineSetWebhook) validateSpecOnCreate(ctx context.Context, parentPath *field.Path, cpms *machinev1.ControlPlaneMachineSet, infrastructure *configv1.Infrastructure) []error {
 	// TODO: This should be MachineInfos and should come from the MachineProvider.
 	// This is a blocker for adding Cluster API support right now.
 	controlPlaneMachines, err := r.fetchControlPlaneMachines(ctx)
@@ -160,7 +175,7 @@ func (r *ControlPlaneMachineSetWebhook) validateSpecOnCreate(ctx context.Context
 			fmt.Sprintf("control plane machine set replicas (%d) does not match the current number of control plane machines (%d)", *cpms.Spec.Replicas, len(controlPlaneMachines))))
 	}
 
-	errs = append(errs, validateTemplateOnCreate(r.logger, parentPath.Child("template"), cpms.Spec.Template, controlPlaneMachines)...)
+	errs = append(errs, validateTemplateOnCreate(r.logger, parentPath.Child("template"), cpms.Spec.Template, controlPlaneMachines, infrastructure)...)
 
 	return errs
 }
@@ -177,16 +192,16 @@ func validateMetadata(parentPath *field.Path, metadata metav1.ObjectMeta) []erro
 }
 
 // validateSpec validates that the spec of the ControlPlaneMachineSet resource is valid.
-func (r *ControlPlaneMachineSetWebhook) validateSpec(ctx context.Context, parentPath *field.Path, cpms *machinev1.ControlPlaneMachineSet) []error {
+func (r *ControlPlaneMachineSetWebhook) validateSpec(ctx context.Context, parentPath *field.Path, cpms *machinev1.ControlPlaneMachineSet, infrastructure *configv1.Infrastructure) []error {
 	errs := []error{}
 
-	errs = append(errs, r.validateTemplate(ctx, cpms.Namespace, parentPath.Child("template"), cpms.Spec.Template, cpms.Spec.Selector)...)
+	errs = append(errs, r.validateTemplate(ctx, cpms.Namespace, parentPath.Child("template"), cpms.Spec.Template, cpms.Spec.Selector, infrastructure)...)
 
 	return errs
 }
 
 // validateTemplate validates the common (on create and update) checks for the ControlPlaneMachineSet template.
-func (r *ControlPlaneMachineSetWebhook) validateTemplate(ctx context.Context, namespaceName string, parentPath *field.Path, template machinev1.ControlPlaneMachineSetTemplate, selector metav1.LabelSelector) []error {
+func (r *ControlPlaneMachineSetWebhook) validateTemplate(ctx context.Context, namespaceName string, parentPath *field.Path, template machinev1.ControlPlaneMachineSetTemplate, selector metav1.LabelSelector, infrastructure *configv1.Infrastructure) []error {
 	switch template.MachineType {
 	case machinev1.OpenShiftMachineV1Beta1MachineType:
 		openshiftMachineTemplatePath := parentPath.Child(string(machinev1.OpenShiftMachineV1Beta1MachineType))
@@ -197,7 +212,7 @@ func (r *ControlPlaneMachineSetWebhook) validateTemplate(ctx context.Context, na
 			return []error{field.Required(openshiftMachineTemplatePath, fmt.Sprintf("%s is required when machine type is %s", machinev1.OpenShiftMachineV1Beta1MachineType, machinev1.OpenShiftMachineV1Beta1MachineType))}
 		}
 
-		return r.validateOpenShiftMachineV1BetaTemplate(ctx, namespaceName, openshiftMachineTemplatePath, *template.OpenShiftMachineV1Beta1Machine, selector)
+		return r.validateOpenShiftMachineV1BetaTemplate(ctx, namespaceName, openshiftMachineTemplatePath, *template.OpenShiftMachineV1Beta1Machine, selector, infrastructure)
 	default:
 		return []error{field.NotSupported(parentPath.Child("machineType"), template.MachineType, []string{string(machinev1.OpenShiftMachineV1Beta1MachineType)})}
 	}
@@ -205,7 +220,7 @@ func (r *ControlPlaneMachineSetWebhook) validateTemplate(ctx context.Context, na
 
 // validateTemplateOnCreate validates the failure domains defined in the template match up with the Machines
 // that already exist within the cluster. This check is only performed on create.
-func validateTemplateOnCreate(logger logr.Logger, parentPath *field.Path, template machinev1.ControlPlaneMachineSetTemplate, machines []machinev1beta1.Machine) []error {
+func validateTemplateOnCreate(logger logr.Logger, parentPath *field.Path, template machinev1.ControlPlaneMachineSetTemplate, machines []machinev1beta1.Machine, infrastructure *configv1.Infrastructure) []error {
 	switch template.MachineType {
 	case machinev1.OpenShiftMachineV1Beta1MachineType:
 		openshiftMachineTemplatePath := parentPath.Child(string(machinev1.OpenShiftMachineV1Beta1MachineType))
@@ -216,27 +231,27 @@ func validateTemplateOnCreate(logger logr.Logger, parentPath *field.Path, templa
 			return []error{field.Required(openshiftMachineTemplatePath, fmt.Sprintf("%s is required when machine type is %s", machinev1.OpenShiftMachineV1Beta1MachineType, machinev1.OpenShiftMachineV1Beta1MachineType))}
 		}
 
-		return validateOpenShiftMachineV1BetaTemplateOnCreate(logger, openshiftMachineTemplatePath, *template.OpenShiftMachineV1Beta1Machine, machines)
+		return validateOpenShiftMachineV1BetaTemplateOnCreate(logger, openshiftMachineTemplatePath, *template.OpenShiftMachineV1Beta1Machine, machines, infrastructure)
 	default:
 		return []error{field.NotSupported(parentPath.Child("machineType"), template.MachineType, []string{string(machinev1.OpenShiftMachineV1Beta1MachineType)})}
 	}
 }
 
 // validateOpenShiftMachineV1BetaTemplate validates the OpenShift Machine API v1beta1 template.
-func (r *ControlPlaneMachineSetWebhook) validateOpenShiftMachineV1BetaTemplate(ctx context.Context, namespaceName string, parentPath *field.Path, template machinev1.OpenShiftMachineV1Beta1MachineTemplate, selector metav1.LabelSelector) []error {
+func (r *ControlPlaneMachineSetWebhook) validateOpenShiftMachineV1BetaTemplate(ctx context.Context, namespaceName string, parentPath *field.Path, template machinev1.OpenShiftMachineV1Beta1MachineTemplate, selector metav1.LabelSelector, infrastructure *configv1.Infrastructure) []error {
 	errs := []error{}
 
 	errs = append(errs, validateTemplateLabels(parentPath.Child("metadata", "labels"), template.ObjectMeta.Labels, selector)...)
-	errs = append(errs, validateOpenShiftProviderConfig(r.logger, parentPath, template)...)
-	errs = append(errs, r.validateOpenShiftProviderMachineSpec(ctx, namespaceName, parentPath.Child("spec", "providerSpec"), template)...)
+	errs = append(errs, validateOpenShiftProviderConfig(r.logger, parentPath, template, infrastructure)...)
+	errs = append(errs, r.validateOpenShiftProviderMachineSpec(ctx, namespaceName, parentPath.Child("spec", "providerSpec"), template, infrastructure)...)
 
 	return errs
 }
 
-func (r *ControlPlaneMachineSetWebhook) validateOpenShiftProviderMachineSpec(ctx context.Context, namespaceName string, parentPath *field.Path, template machinev1.OpenShiftMachineV1Beta1MachineTemplate) []error {
+func (r *ControlPlaneMachineSetWebhook) validateOpenShiftProviderMachineSpec(ctx context.Context, namespaceName string, parentPath *field.Path, template machinev1.OpenShiftMachineV1Beta1MachineTemplate, infrastructure *configv1.Infrastructure) []error {
 	errs := []error{}
 
-	providerConfig, err := providerconfig.NewProviderConfigFromMachineTemplate(r.logger, template)
+	providerConfig, err := providerconfig.NewProviderConfigFromMachineTemplate(r.logger, template, infrastructure)
 	if err != nil {
 		return []error{field.Invalid(parentPath, template.Spec.ProviderSpec.Value, fmt.Sprintf("error determining provider configuration: %s", err))}
 	}
@@ -286,13 +301,13 @@ func (r *ControlPlaneMachineSetWebhook) validateOpenShiftProviderMachineSpec(ctx
 
 // validateOpenShiftMachineV1BetaTemplateOnCreate validates the failure domains in the provided template match up with those
 // present in the Machines provided.
-func validateOpenShiftMachineV1BetaTemplateOnCreate(logger logr.Logger, parentPath *field.Path, template machinev1.OpenShiftMachineV1Beta1MachineTemplate, machines []machinev1beta1.Machine) []error {
+func validateOpenShiftMachineV1BetaTemplateOnCreate(logger logr.Logger, parentPath *field.Path, template machinev1.OpenShiftMachineV1Beta1MachineTemplate, machines []machinev1beta1.Machine, infrastructure *configv1.Infrastructure) []error {
 	errs := []error{}
 
 	if template.FailureDomains.Platform == "" {
-		errs = append(errs, checkOpenShiftProviderSpecFailureDomainMatchesMachines(logger, parentPath.Child("spec", "providerSpec"), template, machines)...)
+		errs = append(errs, checkOpenShiftProviderSpecFailureDomainMatchesMachines(logger, parentPath.Child("spec", "providerSpec"), template, machines, infrastructure)...)
 	} else {
-		errs = append(errs, checkOpenShiftFailureDomainsMatchMachines(logger, parentPath.Child("failureDomains"), template.FailureDomains, machines)...)
+		errs = append(errs, checkOpenShiftFailureDomainsMatchMachines(logger, parentPath.Child("failureDomains"), template.FailureDomains, machines, infrastructure)...)
 	}
 
 	return errs
@@ -318,10 +333,10 @@ func validateTemplateLabels(labelsPath *field.Path, templateLabels map[string]st
 
 // validateOpenShiftProviderConfig checks the provider config on the ControlPlaneMachineSet to ensure that the
 // ControlPlaneMachineSet can safely replace control plane machines.
-func validateOpenShiftProviderConfig(logger logr.Logger, parentPath *field.Path, template machinev1.OpenShiftMachineV1Beta1MachineTemplate) []error {
+func validateOpenShiftProviderConfig(logger logr.Logger, parentPath *field.Path, template machinev1.OpenShiftMachineV1Beta1MachineTemplate, infrastructure *configv1.Infrastructure) []error {
 	providerSpecPath := parentPath.Child("spec", "providerSpec")
 
-	providerConfig, err := providerconfig.NewProviderConfigFromMachineTemplate(logger, template)
+	providerConfig, err := providerconfig.NewProviderConfigFromMachineTemplate(logger, template, infrastructure)
 	if err != nil {
 		return []error{field.Invalid(providerSpecPath, template.Spec.ProviderSpec, fmt.Sprintf("error determining provider configuration: %s", err))}
 	}
@@ -333,6 +348,8 @@ func validateOpenShiftProviderConfig(logger logr.Logger, parentPath *field.Path,
 		return validateOpenShiftGCPProviderConfig(providerSpecPath.Child("value"), providerConfig.GCP())
 	case configv1.OpenStackPlatformType:
 		return validateOpenShiftOpenStackProviderConfig(providerSpecPath.Child("value"), providerConfig.OpenStack())
+	case configv1.VSpherePlatformType:
+		return validateOpenShiftVSphereProviderConfig(providerSpecPath.Child("value"), providerConfig.VSphere(), infrastructure)
 	}
 
 	return []error{}
@@ -364,6 +381,24 @@ func validateOpenShiftOpenStackProviderConfig(parentPath *field.Path, providerCo
 	return []error{}
 }
 
+// validateOpenShiftVSphereProviderConfig runs VSphere specific checks on the provider config on the ControlPlaneMachineSet.
+// This ensure that the ControlPlaneMachineSet can safely replace VSphere control plane machines.
+func validateOpenShiftVSphereProviderConfig(parentPath *field.Path, providerConfig providerconfig.VSphereProviderConfig, infrastructure *configv1.Infrastructure) []error {
+	errors := []error{}
+
+	templatePath := providerConfig.Config().Template
+	if len(templatePath) > 0 {
+		matched, err := regexp.MatchString(vsphereTemplateValidationPattern, templatePath)
+		if err != nil {
+			return append(errors, fmt.Errorf("error checking the validity of the template path: %w", err))
+		}
+		if !matched {
+			errors = append(errors, fmt.Errorf("template must be provided as the full path: %w", err))
+		}
+	}
+	return errors
+}
+
 // fetchControlPlaneMachines returns all control plane machines in the cluster.
 func (r *ControlPlaneMachineSetWebhook) fetchControlPlaneMachines(ctx context.Context) ([]machinev1beta1.Machine, error) {
 	machineList := machinev1beta1.MachineList{}
@@ -386,17 +421,17 @@ func (r *ControlPlaneMachineSetWebhook) fetchControlPlaneMachines(ctx context.Co
 // failure domain extracted from the OpenShift Machine template MachineSpec on the ControlPlaneMachineSet.
 // This check is performed when no failure domains are defined on the OpenShift Machine template on the ControlPlaneMachineSet.
 // For example on single zone AWS deployment.
-func checkOpenShiftProviderSpecFailureDomainMatchesMachines(logger logr.Logger, parentPath *field.Path, template machinev1.OpenShiftMachineV1Beta1MachineTemplate, machines []machinev1beta1.Machine) []error {
+func checkOpenShiftProviderSpecFailureDomainMatchesMachines(logger logr.Logger, parentPath *field.Path, template machinev1.OpenShiftMachineV1Beta1MachineTemplate, machines []machinev1beta1.Machine, infrastructure *configv1.Infrastructure) []error {
 	errs := []error{}
 
-	templateProviderConfig, err := providerconfig.NewProviderConfigFromMachineTemplate(logger, template)
+	templateProviderConfig, err := providerconfig.NewProviderConfigFromMachineTemplate(logger, template, infrastructure)
 	if err != nil {
 		return []error{field.Invalid(parentPath, template, fmt.Sprintf("error parsing provider config from machine template: %v", err))}
 	}
 
 	templateProviderSpecFailureDomain := templateProviderConfig.ExtractFailureDomain()
 
-	failureDomains, err := providerconfig.ExtractFailureDomainsFromMachines(logger, machines)
+	failureDomains, err := providerconfig.ExtractFailureDomainsFromMachines(logger, machines, infrastructure)
 	if err != nil {
 		return append(errs, field.InternalError(parentPath, fmt.Errorf("could not get failure domains from cluster machines: %w", err)))
 	}
@@ -412,10 +447,10 @@ func checkOpenShiftProviderSpecFailureDomainMatchesMachines(logger logr.Logger, 
 
 // checkOpenShiftFailureDomainsMatchMachines ensures that failure domains of the Control Plane Machines match the
 // failure domains defined on the OpenShift Machine template on the ControlPlaneMachineSet.
-func checkOpenShiftFailureDomainsMatchMachines(logger logr.Logger, parentPath *field.Path, failureDomains machinev1.FailureDomains, machines []machinev1beta1.Machine) []error {
+func checkOpenShiftFailureDomainsMatchMachines(logger logr.Logger, parentPath *field.Path, failureDomains machinev1.FailureDomains, machines []machinev1beta1.Machine, infrastructure *configv1.Infrastructure) []error {
 	errs := []error{}
 
-	machineFailureDomains, err := getMachineFailureDomains(logger, machines)
+	machineFailureDomains, err := getMachineFailureDomains(logger, machines, infrastructure)
 	if err != nil {
 		return append(errs, field.InternalError(parentPath.Child("platform"), fmt.Errorf("could not get failure domains from cluster machines on platform %s: %w", failureDomains.Platform, err)))
 	}
@@ -443,11 +478,11 @@ func checkOpenShiftFailureDomainsMatchMachines(logger logr.Logger, parentPath *f
 // getMachineFailureDomains returns a list of failure domains used by the control plane machines.
 // We use this instead of providerconfig.ExtractFailureDomainsFromMachines because we want to
 // keep all machines and the providerconfig util deduplicates the failure domains.
-func getMachineFailureDomains(logger logr.Logger, machines []machinev1beta1.Machine) ([]failuredomain.FailureDomain, error) {
+func getMachineFailureDomains(logger logr.Logger, machines []machinev1beta1.Machine, infrastructure *configv1.Infrastructure) ([]failuredomain.FailureDomain, error) {
 	machineFailureDomains := []failuredomain.FailureDomain{}
 
 	for _, machine := range machines {
-		failureDomain, err := providerconfig.ExtractFailureDomainFromMachine(logger, machine)
+		failureDomain, err := providerconfig.ExtractFailureDomainFromMachine(logger, machine, infrastructure)
 		if err != nil {
 			return nil, fmt.Errorf("could not extract failure domain from machine: %w", err)
 		}
