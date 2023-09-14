@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -38,6 +39,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+
+	configv1client "github.com/openshift/client-go/config/clientset/versioned"
+	configinformers "github.com/openshift/client-go/config/informers/externalversions"
+	featuregates "github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
+	"github.com/openshift/library-go/pkg/operator/events"
 
 	cpmscontroller "github.com/openshift/cluster-control-plane-machine-set-operator/pkg/controllers/controlplanemachineset"
 	cpmsgeneratorcontroller "github.com/openshift/cluster-control-plane-machine-set-operator/pkg/controllers/controlplanemachinesetgenerator"
@@ -128,6 +134,42 @@ func main() { //nolint:funlen,cyclop
 		os.Exit(1)
 	}
 
+	desiredVersion := getReleaseVersion(setupLog)
+	missingVersion := "0.0.1-snapshot"
+
+	configClient, err := configv1client.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		klog.Fatal(err, "unable to create config client")
+		os.Exit(1)
+	}
+
+	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
+
+	// By default, this will exit(0) if the featuregates change
+	featureGateAccessor := featuregates.NewFeatureGateAccess(
+		desiredVersion, missingVersion,
+		configInformers.Config().V1().ClusterVersions(),
+		configInformers.Config().V1().FeatureGates(),
+		events.NewLoggingEventRecorder("vspherecontroller"),
+	)
+	go featureGateAccessor.Run(context.Background())
+	go configInformers.Start(context.Background().Done())
+
+	select {
+	case <-featureGateAccessor.InitialFeatureGatesObserved():
+		featureGates, _ := featureGateAccessor.CurrentFeatureGates()
+		klog.Infof("FeatureGates initialized: %v", featureGates.KnownFeatures())
+	case <-time.After(1 * time.Minute):
+		klog.Fatal("timed out waiting for FeatureGate detection")
+	}
+
+	featureGates, err := featureGateAccessor.CurrentFeatureGates()
+	if err != nil {
+		klog.Fatalf("unable to retrieve current feature gates: %w", err)
+	}
+	// read featuregate read and usage to set a variable to pass to a controller
+	vSphereCPMSFeatureGateEnabled := featureGates.Enabled(configv1.FeatureGateVSphereControlPlaneMachineset)
+
 	// Define an uncached client.
 	// More resource intensive than the default client,
 	// is to be used only in situations where we want to avoid the cache.
@@ -150,9 +192,10 @@ func main() { //nolint:funlen,cyclop
 	}
 
 	if err := (&cpmsgeneratorcontroller.ControlPlaneMachineSetGeneratorReconciler{
-		Client:    mgr.GetClient(),
-		Scheme:    mgr.GetScheme(),
-		Namespace: managedNamespace,
+		Client:                        mgr.GetClient(),
+		Scheme:                        mgr.GetScheme(),
+		Namespace:                     managedNamespace,
+		VSphereCPMSFeatureGateEnabled: vSphereCPMSFeatureGateEnabled,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ControlPlaneMachineSetGenerator")
 		os.Exit(1)
