@@ -2,10 +2,11 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    capability.openshift.io/name: MachineAPI
     api-approved.openshift.io: https://github.com/openshift/api/pull/1112
+    capability.openshift.io/name: MachineAPI
     exclude.release.openshift.io/internal-openshift-hosted: "true"
     include.release.openshift.io/self-managed-high-availability: "true"
+    release.openshift.io/feature-set: TechPreviewNoUpgrade
   creationTimestamp: null
   name: controlplanemachinesets.machine.openshift.io
 spec:
@@ -229,6 +230,11 @@ spec:
                                 required:
                                   - zone
                                 properties:
+                                  subnet:
+                                    description: subnet is the name of the network subnet in which the VM will be created. When omitted, the subnet value from the machine providerSpec template will be used.
+                                    type: string
+                                    maxLength: 80
+                                    pattern: ^[a-zA-Z0-9](?:[a-zA-Z0-9._-]*[a-zA-Z0-9_])?$
                                   zone:
                                     description: Availability Zone for the virtual machine. If nil, the virtual machine should be deployed to no zone.
                                     type: string
@@ -300,7 +306,7 @@ spec:
                                 - Nutanix
                                 - External
                             vsphere:
-                              description: VSphereFailureDomain configures failure domain information for the VSphere platform.
+                              description: VSphere configures failure domain information for the VSphere platform.
                               type: array
                               items:
                                 description: VSphereFailureDomain configures failure domain information for the vSphere platform
@@ -309,9 +315,11 @@ spec:
                                   - name
                                 properties:
                                   name:
-                                    description: Name is the name of the failure domain in which the vSphere machine provider will create the VM. Failure domains are defined in a cluster's config.openshift.io/Infrastructure resource.
+                                    description: name of the failure domain in which the vSphere machine provider will create the VM. Failure domains are defined in a cluster's config.openshift.io/Infrastructure resource.
                                     type: string
                           x-kubernetes-validations:
+                            - rule: 'has(self.platform) && self.platform == ''VSphere'' ?  has(self.vsphere) : !has(self.vsphere)'
+                              message: vsphere configuration is required when platform is VSphere, and forbidden otherwise
                             - rule: 'has(self.platform) && self.platform == ''AWS'' ?  has(self.aws) : !has(self.aws)'
                               message: aws configuration is required when platform is AWS, and forbidden otherwise
                             - rule: 'has(self.platform) && self.platform == ''Azure'' ?  has(self.azure) : !has(self.azure)'
@@ -320,8 +328,6 @@ spec:
                               message: gcp configuration is required when platform is GCP, and forbidden otherwise
                             - rule: 'has(self.platform) && self.platform == ''OpenStack'' ?  has(self.openstack) : !has(self.openstack)'
                               message: openstack configuration is required when platform is OpenStack, and forbidden otherwise
-                            - rule: 'has(self.platform) && self.platform == ''VSphere'' ?  has(self.vsphere) : !has(self.vsphere)'
-                              message: VSphere configuration is required when platform is VSphere, and forbidden otherwise
                         metadata:
                           description: 'ObjectMeta is the standard object metadata More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata Labels are required to match the ControlPlaneMachineSet selector.'
                           type: object
