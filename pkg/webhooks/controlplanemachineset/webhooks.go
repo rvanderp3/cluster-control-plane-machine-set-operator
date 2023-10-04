@@ -384,19 +384,21 @@ func validateOpenShiftOpenStackProviderConfig(parentPath *field.Path, providerCo
 // validateOpenShiftVSphereProviderConfig runs VSphere specific checks on the provider config on the ControlPlaneMachineSet.
 // This ensure that the ControlPlaneMachineSet can safely replace VSphere control plane machines.
 func validateOpenShiftVSphereProviderConfig(parentPath *field.Path, providerConfig providerconfig.VSphereProviderConfig, infrastructure *configv1.Infrastructure) []error {
-	errors := []error{}
+	errs := []error{}
+
+	//if providerConfig
 
 	templatePath := providerConfig.Config().Template
 	if len(templatePath) > 0 {
 		matched, err := regexp.MatchString(vsphereTemplateValidationPattern, templatePath)
 		if err != nil {
-			return append(errors, fmt.Errorf("error checking the validity of the template path: %w", err))
+			errs = append(errs, field.InternalError(parentPath, fmt.Errorf("error checking the validity of the template path: %w", err)))
 		}
 		if !matched {
-			errors = append(errors, fmt.Errorf("template must be provided as the full path: %w", err))
+			errs = append(errs, field.Invalid(parentPath, templatePath, "template must be provided as the full path"))
 		}
 	}
-	return errors
+	return errs
 }
 
 // fetchControlPlaneMachines returns all control plane machines in the cluster.
