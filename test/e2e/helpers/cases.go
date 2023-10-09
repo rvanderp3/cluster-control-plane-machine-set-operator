@@ -324,7 +324,7 @@ func ItShouldPerformControlPlaneMachineSetRegeneration(opts *ControlPlaneMachine
 		WaitForControlPlaneMachineSetRemovedOrRecreated(ctx, opts.TestFramework, opts.UID)
 		EnsureInactiveControlPlaneMachineSet(opts.TestFramework)
 
-		rawExtension, err := opts.TestFramework.ConvertToControlPlaneMachineSetProviderSpec(opts.UpdatedProviderSpec)
+		rawExtension, err := opts.TestFramework.ConvertToControlPlaneMachineSetProviderSpec(opts.UpdatedProviderSpec, CheckInfrastructureHasFailureDomains(opts.TestFramework))
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Checking the control plane machine set reports 1 updated machine, 2 needing update")
@@ -340,5 +340,24 @@ func ItShouldPerformControlPlaneMachineSetRegeneration(opts *ControlPlaneMachine
 			HaveField("Spec.Template.OpenShiftMachineV1Beta1Machine.Spec.ProviderSpec.Value.Raw",
 				MatchJSON(rawExtension.Raw)),
 		)
+	})
+}
+
+// ItShouldHaveDegradedControlPlaneMachineSet checks to see if CPMS exists, all replicas are ready, and has
+// a condition of type Error with status = True.
+func ItShouldHaveDegradedControlPlaneMachineSet(testFramework framework.Framework) {
+	It("should have error condition for control plane machine set", func() {
+		Expect(testFramework).ToNot(BeNil(), "test framework should not be nil")
+		cpms := testFramework.NewEmptyControlPlaneMachineSet()
+
+		By("Waiting for the control plane machine set to have error condition equal true")
+		Eventually(komega.Object(cpms), 2*time.Minute, 10*time.Second).Should(HaveField("Status.Conditions",
+			SatisfyAll(
+				ContainElement(And(
+					HaveField("Type", Equal("Error")),
+					HaveField("Status", BeEquivalentTo("True")),
+				)),
+			),
+		), "status of the control plane machine set should have error is true")
 	})
 }

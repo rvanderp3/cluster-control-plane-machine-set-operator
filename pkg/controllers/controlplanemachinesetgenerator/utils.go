@@ -196,7 +196,9 @@ func buildFailureDomains(logger logr.Logger, machineSets []machinev1beta1.Machin
 	case configv1.GCPPlatformType:
 		cpmsFailureDomain, _ = buildGCPFailureDomains(failureDomains)
 	case configv1.VSpherePlatformType:
-		cpmsFailureDomain, _ = buildVSphereFailureDomains(failureDomains)
+		// vSphere needs to build FD based on existing masters only else
+		// the new cpms will get rejected by the webhook.
+		cpmsFailureDomain, _ = buildVSphereFailureDomains(failuredomain.NewSet(machineFailureDomains...))
 	case configv1.OpenStackPlatformType:
 		cpmsFailureDomain, err = buildOpenStackFailureDomains(failureDomains)
 		if err != nil {

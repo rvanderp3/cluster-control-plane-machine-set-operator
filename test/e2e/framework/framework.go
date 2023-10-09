@@ -69,6 +69,9 @@ type Framework interface {
 	// machine set.
 	ControlPlaneMachineSetKey() runtimeclient.ObjectKey
 
+	// InfrastructureKey is the object key for fetching the Infrastructure.
+	InfrastructureKey() runtimeclient.ObjectKey
+
 	// LoadClient returns a new controller-runtime client.
 	GetClient() runtimeclient.Client
 
@@ -88,6 +91,9 @@ type Framework interface {
 	// just the name and namespace set.
 	NewEmptyControlPlaneMachineSet() *machinev1.ControlPlaneMachineSet
 
+	// NewEmptyInfrastructure returns a new infrastructure object.
+	NewEmptyInfrastructure() *configv1.Infrastructure
+
 	// IncreaseProviderSpecInstanceSize increases the instance size of the
 	// providerSpec passed. This is used to trigger updates to the Machines
 	// managed by the control plane machine set.
@@ -98,7 +104,7 @@ type Framework interface {
 
 	// ConvertToControlPlaneMachineSetProviderSpec converts a control plane machine provider spec
 	// to a control plane machine set suitable provider spec.
-	ConvertToControlPlaneMachineSetProviderSpec(providerSpec machinev1beta1.ProviderSpec) (*runtime.RawExtension, error)
+	ConvertToControlPlaneMachineSetProviderSpec(providerSpec machinev1beta1.ProviderSpec, hasFailureDomains bool) (*runtime.RawExtension, error)
 
 	// UpdateDefaultedValueFromCPMS updates a field that is defaulted by the defaulting webhook in the MAO with a desired value.
 	UpdateDefaultedValueFromCPMS(rawProviderSpec *runtime.RawExtension) (*runtime.RawExtension, error)
@@ -183,6 +189,14 @@ func (f *framework) ControlPlaneMachineSetKey() runtimeclient.ObjectKey {
 	}
 }
 
+// InfrastructureKey is the object key for fetching the Infrastructure.
+func (f *framework) InfrastructureKey() runtimeclient.ObjectKey {
+	return runtimeclient.ObjectKey{
+		Namespace: f.namespace,
+		Name:      InfrastructureName,
+	}
+}
+
 // GetClient returns a controller-runtime client.
 func (f *framework) GetClient() runtimeclient.Client {
 	return f.client
@@ -214,6 +228,16 @@ func (f *framework) NewEmptyControlPlaneMachineSet() *machinev1.ControlPlaneMach
 	return &machinev1.ControlPlaneMachineSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ControlPlaneMachineSetName,
+			Namespace: f.namespace,
+		},
+	}
+}
+
+// NewEmptyInfrastructure returns a new infrastructure object.
+func (f *framework) NewEmptyInfrastructure() *configv1.Infrastructure {
+	return &configv1.Infrastructure{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      InfrastructureName,
 			Namespace: f.namespace,
 		},
 	}
@@ -373,7 +397,7 @@ func updateCredentialsSecretNameVSphere(providerConfig providerconfig.ProviderCo
 
 // ConvertToControlPlaneMachineSetProviderSpec converts a control plane machine provider spec
 // to a raw, control plane machine set suitable provider spec.
-func (f *framework) ConvertToControlPlaneMachineSetProviderSpec(providerSpec machinev1beta1.ProviderSpec) (*runtime.RawExtension, error) {
+func (f *framework) ConvertToControlPlaneMachineSetProviderSpec(providerSpec machinev1beta1.ProviderSpec, hasFailureDomains bool) (*runtime.RawExtension, error) {
 	providerConfig, err := providerconfig.NewProviderConfigFromMachineSpec(f.logger, machinev1beta1.MachineSpec{
 		ProviderSpec: providerSpec,
 	}, nil)
@@ -393,7 +417,7 @@ func (f *framework) ConvertToControlPlaneMachineSetProviderSpec(providerSpec mac
 	case configv1.OpenStackPlatformType:
 		return convertOpenStackProviderConfigToControlPlaneMachineSetProviderSpec(providerConfig)
 	case configv1.VSpherePlatformType:
-		return convertVSphereProviderConfigToControlPlaneMachineSetProviderSpec(providerConfig)
+		return convertVSphereProviderConfigToControlPlaneMachineSetProviderSpec(providerConfig, hasFailureDomains)
 	default:
 		return nil, fmt.Errorf("%w: %s", errUnsupportedPlatform, f.platform)
 	}
@@ -450,9 +474,18 @@ func convertAzureProviderConfigToControlPlaneMachineSetProviderSpec(providerConf
 
 // convertVSphereProviderConfigToControlPlaneMachineSetProviderSpec converts an VSphere providerConfig into a
 // raw control plane machine set provider spec.
-func convertVSphereProviderConfigToControlPlaneMachineSetProviderSpec(providerConfig providerconfig.ProviderConfig) (*runtime.RawExtension, error) {
+func convertVSphereProviderConfigToControlPlaneMachineSetProviderSpec(providerConfig providerconfig.ProviderConfig, hasFailureDomains bool) (*runtime.RawExtension, error) {
 	vspherePs := providerConfig.VSphere().Config()
+	vspherePs = *vspherePs.DeepCopy()
 	vspherePs.Name = ""
+
+	// vSphere handles failure domains differently.  There will not be a 1-to-1 match for
+	// new machine vs cpms.  Need to strip
+	if hasFailureDomains {
+		vspherePs.Workspace = &machinev1beta1.Workspace{}
+		vspherePs.Network.Devices = []machinev1beta1.NetworkDeviceSpec{}
+		vspherePs.Template = ""
+	}
 
 	rawBytes, err := json.Marshal(vspherePs)
 	if err != nil {

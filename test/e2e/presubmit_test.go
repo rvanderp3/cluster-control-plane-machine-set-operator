@@ -24,7 +24,6 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	machinev1 "github.com/openshift/api/machine/v1"
 	machinev1beta1 "github.com/openshift/api/machine/v1beta1"
-
 	"github.com/openshift/cluster-control-plane-machine-set-operator/test/e2e/framework"
 	"github.com/openshift/cluster-control-plane-machine-set-operator/test/e2e/helpers"
 )
@@ -123,6 +122,35 @@ var _ = Describe("ControlPlaneMachineSet Operator", framework.PreSubmit(), func(
 			})
 
 			helpers.ItShouldNotCauseARollout(testFramework)
+		})
+
+		Context("and infrastructure change with failure domain", func() {
+			BeforeEach(func() {
+				switch testFramework.GetPlatformType() {
+				case configv1.VSpherePlatformType:
+					if !helpers.CheckInfrastructureHasFailureDomains(testFramework) {
+						Skip("Infrastructure does not have failure domain")
+					}
+				default:
+					Skip("Skipping test on platforms with no failure domain test support")
+				}
+			})
+
+			Context("and first failure domain is removed", func() {
+				var originalFD *configv1.VSpherePlatformFailureDomainSpec
+				BeforeEach(func() {
+					originalFD = helpers.RemoveFailureDomain(testFramework, 0)
+				}, OncePerOrdered)
+
+				AfterEach(func() {
+					helpers.AddFailureDomain(testFramework, originalFD, 0)
+				}, OncePerOrdered)
+
+				helpers.ItShouldNotCauseARollout(testFramework)
+
+				// Check for error status
+				helpers.ItShouldHaveDegradedControlPlaneMachineSet(testFramework)
+			})
 		})
 	})
 

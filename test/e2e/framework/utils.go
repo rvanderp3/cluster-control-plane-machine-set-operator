@@ -38,6 +38,9 @@ const (
 
 	// ControlPlaneMachineSetName is the name of the control plane machine set in all clusters.
 	ControlPlaneMachineSetName = "cluster"
+
+	// InfrastructureName is the name of the infrastructure in all clusters.
+	InfrastructureName = "cluster"
 )
 
 var (
